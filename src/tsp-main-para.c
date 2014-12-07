@@ -37,7 +37,6 @@ int nb_threads=1;
 bool affiche_sol= false;
 
 
-/* Se concentrer sur la file de jobs */
 static void generate_tsp_jobs (struct tsp_queue *q, int hops, int len, tsp_path_t path, long long int *cuts, tsp_path_t sol, int *sol_len, int depth)
 {
     if (len >= minimum) {
@@ -69,9 +68,9 @@ int main (int argc, char **argv)
 {
     unsigned long long perf;
     tsp_path_t path;
-    tsp_path_t sol;
-    int sol_len;
-    long long int cuts = 0;
+    tsp_path_t sol;	// Accès en exclusion mutuelle
+    int sol_len;	// Accès en exclusion mutuelle
+    long long int cuts = 0;	// Accès en exclusion mutuelle (moins critique)
     struct tsp_queue q;
     struct timespec t1, t2;
 
