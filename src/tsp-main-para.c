@@ -184,9 +184,9 @@ int main (int argc, char **argv)
     solution[0] = 0;
 	while (!empty_queue (&q)) {
 		// Wait for a thread if jobs not finished (= number max of threads reached)
-		while (i == nb_threads-1) {// Just to be sure, we could put i >=..., even if it couldn't
-				pthread_cond_wait(&cond_threads_number, &mutex_threads_number);
-		}
+// 		while (i == nb_threads-1) {// Just to be sure, we could put i >=..., even if it couldn't
+// 				pthread_cond_wait(&cond_threads_number, &mutex_threads_number);
+// 		}
         int hops = 0, len = 0;
 // 		get_job (&q, solution, &hops, &len);
 // // 			arguments_for_get_job.job_queue = &q;
@@ -208,7 +208,8 @@ int main (int argc, char **argv)
 		(arguments_for_threads+i)->jumps = &hops;
 		(arguments_for_threads+i)->length = &len;
 		(arguments_for_threads+i)->cuttings = &cuts;
-		(arguments_for_threads+i)->t_solution = &solution;
+		(arguments_for_threads+i)->t_path = &solution;
+		(arguments_for_threads+i)->t_solution = &sol;
 		(arguments_for_threads+i)->solution_length = &sol_len;
 		(arguments_for_threads+i)->jobs_list = &q;
 		pthread_create(threads_table+i, NULL, threads_loop, (void *) (arguments_for_threads+i));
@@ -216,10 +217,13 @@ int main (int argc, char **argv)
     }
 
     while (i > 0) {
-// 		i--;
-// 		pthread_join(threads_table[i], &status);
-		pthread_cond_wait(&cond_threads_number, &mutex_threads_number);
+// // 		i--;
+		pthread_join(threads_table[i], &status);
+// 		pthread_cond_wait(&cond_threads_number, &mutex_threads_number);
     }
+
+    free(arguments_for_threads);
+	free(threads_table);
 
     clock_gettime (CLOCK_REALTIME, &t2);
 
