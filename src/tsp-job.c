@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <pthread.h>
 
 #include "tsp-types.h"
 #include "tsp-job.h"
@@ -17,6 +18,10 @@ struct tsp_cell {
     struct tsp_job tsp_job;
     struct tsp_cell *next;
 };
+
+
+pthread_mutex_t mutex_jobs;
+pthread_cond_t cond_jobs;
 
 
 void init_queue (struct tsp_queue *q) {
@@ -50,15 +55,12 @@ void add_job (struct tsp_queue *q, tsp_path_t p, int hops, int len) {
    }
 }
 
-void *get_job_for_threads(void *arg) {
-	struct get_thread_job *conversion = (struct get_thread_job *) arg;
-// 	conversion.job_queue = (struct tsp_queue *)(arg.job_queue);
-// 	conversion.path = (tsp_path_t)(arg.path);
-// 	conversion.jumps = (int *)(arg.jumps);
-// 	conversion.length = (int *)(arg.length);
-	get_job(conversion->job_queue, *(conversion->path), conversion->jumps, conversion->length);
-	return NULL;
-}
+
+// void *get_job_for_threads(void *arg) {
+// 	struct get_thread_job *conversion = (struct get_thread_job *) arg;
+// 	get_job(conversion->job_queue, *(conversion->path), conversion->jumps, conversion->length);
+// 	return NULL;
+// }
 
 
 int get_job (struct tsp_queue *q, tsp_path_t p, int *hops, int *len) {
@@ -67,6 +69,10 @@ int get_job (struct tsp_queue *q, tsp_path_t p, int *hops, int *len) {
    if (q->first == 0) {
        return 0;
    }
+
+   /*  */
+   pthread_mutex_lock(&mutex_jobs);
+   /*  */
 
    ptr = q->first;
 
@@ -80,6 +86,9 @@ int get_job (struct tsp_queue *q, tsp_path_t p, int *hops, int *len) {
    memcpy (p, ptr->tsp_job.path, *hops * sizeof(p[0]));
 
    free (ptr);
+   /*  */
+   pthread_mutex_unlock(&mutex_jobs);
+   /*  */
    return 1;
 }
 

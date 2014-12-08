@@ -39,7 +39,24 @@ bool affiche_sol= false;
 
 
 // Mutex
-pthread_mutex_t mutex;
+extern pthread_mutex_t mutex_sol;
+extern pthread_cond_t cond_sol;
+// pthread_cond_init(&cond_sol, NULL);
+//
+extern pthread_mutex_t mutex_sol_len;
+extern pthread_cond_t cond_sol_len;
+// pthread_cond_init(&cond_sol_len, NULL);
+//
+extern pthread_mutex_t mutex_cuts;
+extern pthread_cond_t cond_cuts;
+// pthread_cond_init(&cond_cuts, NULL);
+
+extern pthread_mutex_t mutex_jobs;
+extern pthread_cond_t cond_jobs;
+
+pthread_mutex_t mutex_threads_number;
+pthread_cond_t cond_threads_number;
+
 
 struct threads_args {
 	int * number_of_threads;
@@ -61,6 +78,8 @@ static void generate_tsp_jobs (struct tsp_queue *q, int hops, int len, tsp_path_
         (*cuts)++ ;
         return;
     }
+
+    pthread_cond_init(&cond_jobs, NULL);
 
     if (hops == depth) {
         /* On enregistre du travail à faire plus tard... */
@@ -87,6 +106,8 @@ static void *threads_loop(void * arg) {
 	struct threads_args * conversion = (struct threads_args *) arg;
 	get_job(conversion->jobs_list, *(conversion->t_path), conversion->jumps, conversion->length);
 	tsp(*(conversion->jumps), *(conversion->length), *(conversion->t_path), conversion->cuttings, *(conversion->t_solution), conversion->solution_length);
+	(conversion->number_of_threads)--;
+	pthread_cond_signal(&cond_threads_number);
 	return NULL;
 }
 
@@ -134,6 +155,12 @@ int main (int argc, char **argv)
 	threads_table = (pthread_t *) calloc(nb_threads, sizeof(pthread_t));
 	arguments_for_threads = (struct threads_args *) calloc(nb_threads, sizeof(struct threads_args));
 
+	pthread_cond_init(&cond_threads_number, NULL);
+	pthread_cond_init(&cond_sol, NULL);
+	pthread_cond_init(&cond_sol_len, NULL);
+	pthread_cond_init(&cond_cuts, NULL);
+	/*  */
+
     minimum = INT_MAX;
 
     /* generer la carte et la matrice de distance */
@@ -158,7 +185,7 @@ int main (int argc, char **argv)
 	while (!empty_queue (&q)) {
 		// Wait for a thread if jobs not finished (= number max of threads reached)
 		while (i == nb_threads-1) {// Just to be sure, we could put i >=..., even if it couldn't
-				;
+				pthread_cond_wait(&cond_threads_number, &mutex_threads_number);
 		}
         int hops = 0, len = 0;
 // 		get_job (&q, solution, &hops, &len);
@@ -190,7 +217,8 @@ int main (int argc, char **argv)
 
     while (i > 0) {
 // 		i--;
-		pthread_join(threads_table[i], &status);
+// 		pthread_join(threads_table[i], &status);
+		pthread_cond_wait(&cond_threads_number, &mutex_threads_number);
     }
 
     clock_gettime (CLOCK_REALTIME, &t2);
