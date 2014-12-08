@@ -155,6 +155,7 @@ int main (int argc, char **argv)
     }
 
     while (i > 0) {
+		i--;
 		pthread_join(threads_table[i], &status);
     }
 
