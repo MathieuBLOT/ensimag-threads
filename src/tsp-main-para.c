@@ -41,6 +41,8 @@ bool affiche_sol= false;
 // Mutex
 pthread_mutex_t mutex;
 
+void * status;
+
 
 static void generate_tsp_jobs (struct tsp_queue *q, int hops, int len, tsp_path_t path, long long int *cuts, tsp_path_t sol, int *sol_len, int depth)
 {
@@ -81,7 +83,8 @@ int main (int argc, char **argv)
 
 	// Tableau de TID
 	pthread_t *threads_table = NULL;
-	struct get_thread_job arguments_for_get_job;
+// 	struct get_thread_job arguments_for_get_job;
+	struct tsp_threads arguments_for_tsp;
 	int i = 0;
 
     /* lire les arguments */
@@ -132,16 +135,27 @@ int main (int argc, char **argv)
     solution[0] = 0;
     while (!empty_queue (&q)) {
         int hops = 0, len = 0;
-// 		get_job (&q, solution, &hops, &len);
-			arguments_for_get_job.job_queue = &q;
-			arguments_for_get_job.path = &solution;
-			arguments_for_get_job.jumps = &hops;
-			arguments_for_get_job.length = &len;
-		pthread_create(threads_table+i, NULL, get_job_for_threads, (void *)&arguments_for_get_job);
-        tsp (hops, len, solution, &cuts, sol, &sol_len);
+		get_job (&q, solution, &hops, &len);
+// 			arguments_for_get_job.job_queue = &q;
+// 			arguments_for_get_job.path = &solution;
+// 			arguments_for_get_job.jumps = &hops;
+// 			arguments_for_get_job.length = &len;
+// 		pthread_create(threads_table+i, NULL, get_job_for_threads, (void *)&arguments_for_get_job);
+// 		tsp (hops, len, solution, &cuts, sol, &sol_len);
+			arguments_for_tsp.jumps = hops;
+			arguments_for_tsp.length = len;
+			arguments_for_tsp.path = &solution;
+			arguments_for_tsp.cuttings = &cuts;
+			arguments_for_tsp.solution = &sol;
+			arguments_for_tsp.solution_length = &sol_len;
+		pthread_create(threads_table+i, NULL, tsp_for_threads, (void *) &arguments_for_tsp);
 
 		/*  */
 		i++;
+    }
+
+    while (i > 0) {
+		pthread_join(threads_table[i], &status);
     }
 
     clock_gettime (CLOCK_REALTIME, &t2);

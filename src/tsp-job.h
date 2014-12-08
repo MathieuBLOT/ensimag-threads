@@ -12,7 +12,7 @@ struct tsp_queue {
 // Conversion multi-threads
 struct get_thread_job {
 	struct tsp_queue * job_queue;
-	tsp_path_t *path;
+	tsp_path_t * path;
 	int * jumps;
 	int * length;
 };

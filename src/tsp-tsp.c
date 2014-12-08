@@ -22,6 +22,12 @@ int present (int city, int hops, tsp_path_t path)
 }
 
 
+void *tsp_for_threads(void *arg) {
+	struct tsp_threads *conversion = (struct tsp_threads *) arg;
+	tsp(conversion->jumps, conversion->length, *(conversion->path), conversion->cuttings, *(conversion->solution), conversion->solution_length);
+	return NULL;
+}
+
 
 void tsp (int hops, int len, tsp_path_t path, long long int *cuts, tsp_path_t sol, int *sol_len)
 {
