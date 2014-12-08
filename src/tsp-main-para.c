@@ -41,6 +41,17 @@ bool affiche_sol= false;
 // Mutex
 pthread_mutex_t mutex;
 
+struct threads_args {
+	int * number_of_threads;
+	int * jumps;
+	int * length;
+	long long int * cuttings;
+	tsp_path_t * t_path;
+	tsp_path_t * t_solution;
+	int * solution_length;
+	struct tsp_queue * jobs_list;
+};
+
 void * status;
 
 
@@ -71,6 +82,15 @@ static void usage(const char *name) {
   exit (3);
 }
 
+
+static void *threads_loop(void * arg) {
+	struct threads_args * conversion = (struct threads_args *) arg;
+	get_job(conversion->jobs_list, *(conversion->t_path), conversion->jumps, conversion->length);
+	tsp(*(conversion->jumps), *(conversion->length), *(conversion->t_path), conversion->cuttings, *(conversion->t_solution), conversion->solution_length);
+	return NULL;
+}
+
+
 int main (int argc, char **argv)
 {
     unsigned long long perf;
@@ -84,7 +104,8 @@ int main (int argc, char **argv)
 	// Tableau de TID
 	pthread_t *threads_table = NULL;
 // 	struct get_thread_job arguments_for_get_job;
-	struct tsp_threads arguments_for_tsp;
+// 	struct tsp_threads arguments_for_tsp;
+	struct threads_args * arguments_for_threads = NULL;
 	int i = 0;
 
     /* lire les arguments */
@@ -111,6 +132,7 @@ int main (int argc, char **argv)
 
 	/* Génération des threads */
 	threads_table = (pthread_t *) calloc(nb_threads, sizeof(pthread_t));
+	arguments_for_threads = (struct threads_args *) calloc(nb_threads, sizeof(struct threads_args));
 
     minimum = INT_MAX;
 
@@ -133,29 +155,41 @@ int main (int argc, char **argv)
     tsp_path_t solution;
     memset (solution, -1, MAX_TOWNS * sizeof (int));
     solution[0] = 0;
-    while (!empty_queue (&q)) {
+	while (!empty_queue (&q)) {
+		// Wait for a thread if jobs not finished (= number max of threads reached)
+		while (i == nb_threads-1) {// Just to be sure, we could put i >=..., even if it couldn't
+				;
+		}
         int hops = 0, len = 0;
-		get_job (&q, solution, &hops, &len);
-// 			arguments_for_get_job.job_queue = &q;
-// 			arguments_for_get_job.path = &solution;
-// 			arguments_for_get_job.jumps = &hops;
-// 			arguments_for_get_job.length = &len;
-// 		pthread_create(threads_table+i, NULL, get_job_for_threads, (void *)&arguments_for_get_job);
+// 		get_job (&q, solution, &hops, &len);
+// // 			arguments_for_get_job.job_queue = &q;
+// // 			arguments_for_get_job.path = &solution;
+// // 			arguments_for_get_job.jumps = &hops;
+// // 			arguments_for_get_job.length = &len;
+// // 		pthread_create(threads_table+i, NULL, get_job_for_threads, (void *)&arguments_for_get_job);
 // 		tsp (hops, len, solution, &cuts, sol, &sol_len);
-			arguments_for_tsp.jumps = hops;
-			arguments_for_tsp.length = len;
-			arguments_for_tsp.path = &solution;
-			arguments_for_tsp.cuttings = &cuts;
-			arguments_for_tsp.solution = &sol;
-			arguments_for_tsp.solution_length = &sol_len;
-		pthread_create(threads_table+i, NULL, tsp_for_threads, (void *) &arguments_for_tsp);
+// // 			arguments_for_tsp.jumps = hops;
+// // 			arguments_for_tsp.length = len;
+// // 			arguments_for_tsp.path = &solution;
+// // 			arguments_for_tsp.cuttings = &cuts;
+// // 			arguments_for_tsp.solution = &sol;
+// // 			arguments_for_tsp.solution_length = &sol_len;
+// // 		pthread_create(threads_table+i, NULL, tsp_for_threads, (void *) &arguments_for_tsp);
 
 		/*  */
+		(arguments_for_threads+i)->number_of_threads = &i;
+		(arguments_for_threads+i)->jumps = &hops;
+		(arguments_for_threads+i)->length = &len;
+		(arguments_for_threads+i)->cuttings = &cuts;
+		(arguments_for_threads+i)->t_solution = &solution;
+		(arguments_for_threads+i)->solution_length = &sol_len;
+		(arguments_for_threads+i)->jobs_list = &q;
+		pthread_create(threads_table+i, NULL, threads_loop, (void *) (arguments_for_threads+i));
 		i++;
     }
 
     while (i > 0) {
-		i--;
+// 		i--;
 		pthread_join(threads_table[i], &status);
     }
 
