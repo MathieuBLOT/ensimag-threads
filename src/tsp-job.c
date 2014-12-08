@@ -18,6 +18,7 @@ struct tsp_cell {
     struct tsp_cell *next;
 };
 
+
 void init_queue (struct tsp_queue *q) {
     q->first = 0;
     q->last = 0;
@@ -48,6 +49,17 @@ void add_job (struct tsp_queue *q, tsp_path_t p, int hops, int len) {
        q->last = ptr;
    }
 }
+
+void *get_job_for_threads(void *arg) {
+	struct get_thread_job *conversion = (struct get_thread_job *) arg;
+// 	conversion.job_queue = (struct tsp_queue *)(arg.job_queue);
+// 	conversion.path = (tsp_path_t)(arg.path);
+// 	conversion.jumps = (int *)(arg.jumps);
+// 	conversion.length = (int *)(arg.length);
+	get_job(conversion->job_queue, *(conversion->path), conversion->jumps, conversion->length);
+	return NULL;
+}
+
 
 int get_job (struct tsp_queue *q, tsp_path_t p, int *hops, int *len) {
    struct tsp_cell *ptr;

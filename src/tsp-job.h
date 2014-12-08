@@ -9,12 +9,22 @@ struct tsp_queue {
    int end;
 };
 
+// Conversion multi-threads
+struct get_thread_job {
+	struct tsp_queue * job_queue;
+	tsp_path_t *path;
+	int * jumps;
+	int * length;
+};
+
 /* Initialise la file [q]. */
 extern void init_queue (struct tsp_queue *q);
 
 /* Ajoute un job à la file [q]: chemin [p], [hops] villes parcourues, longueur parcourue [len]. */
 extern void add_job (struct tsp_queue *q, tsp_path_t p, int hops, int len) ;
 
+
+extern void *get_job_for_threads(void *arg);
 /* Enlève un job de la file [q], le stocke dans [p], [hops] et [len]. Peut retourner 0 si la file
  * est temporairement vide. */
 extern int get_job (struct tsp_queue *q, tsp_path_t p, int *hops, int *len) ;

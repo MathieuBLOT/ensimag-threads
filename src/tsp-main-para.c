@@ -80,7 +80,9 @@ int main (int argc, char **argv)
 	struct timespec t1, t2;
 
 	// Tableau de TID
-	pthread_t *tableau = NULL;
+	pthread_t *threads_table = NULL;
+	struct get_thread_job arguments_for_get_job;
+	int i = 0;
 
     /* lire les arguments */
     int opt;
@@ -103,6 +105,9 @@ int main (int argc, char **argv)
     nb_threads = atoi(argv[optind+2]);
     assert(nb_towns > 0);
     assert(nb_threads > 0);
+
+	/* Génération des threads */
+	threads_table = (pthread_t *) calloc(nb_threads, sizeof(pthread_t));
 
     minimum = INT_MAX;
 
@@ -127,8 +132,16 @@ int main (int argc, char **argv)
     solution[0] = 0;
     while (!empty_queue (&q)) {
         int hops = 0, len = 0;
-        get_job (&q, solution, &hops, &len);
+// 		get_job (&q, solution, &hops, &len);
+			arguments_for_get_job.job_queue = &q;
+			arguments_for_get_job.path = &solution;
+			arguments_for_get_job.jumps = &hops;
+			arguments_for_get_job.length = &len;
+		pthread_create(threads_table+i, NULL, get_job_for_threads, (void *)&arguments_for_get_job);
         tsp (hops, len, solution, &cuts, sol, &sol_len);
+
+		/*  */
+		i++;
     }
 
     clock_gettime (CLOCK_REALTIME, &t2);
