@@ -8,6 +8,7 @@
 #include <complex.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <pthread.h>
 
 #include "tsp-types.h"
 #include "tsp-job.h"
@@ -35,6 +36,10 @@ int nb_threads=1;
 
 /* affichage SVG */
 bool affiche_sol= false;
+
+
+// Mutex
+pthread_mutex_t mutex;
 
 
 static void generate_tsp_jobs (struct tsp_queue *q, int hops, int len, tsp_path_t path, long long int *cuts, tsp_path_t sol, int *sol_len, int depth)
@@ -72,7 +77,10 @@ int main (int argc, char **argv)
     int sol_len;	// Accès en exclusion mutuelle
     long long int cuts = 0;	// Accès en exclusion mutuelle (moins critique)
     struct tsp_queue q;
-    struct timespec t1, t2;
+	struct timespec t1, t2;
+
+	// Tableau de TID
+	pthread_t *tableau = NULL;
 
     /* lire les arguments */
     int opt;
