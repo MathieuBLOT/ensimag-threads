@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <semaphore.h>
 
 #include "tsp-types.h"
 #include "tsp-job.h"
@@ -54,8 +55,10 @@ extern pthread_cond_t cond_cuts;
 extern pthread_mutex_t mutex_jobs;
 extern pthread_cond_t cond_jobs;
 
-pthread_mutex_t mutex_threads_number;
-pthread_cond_t cond_threads_number;
+// Sémaphore
+// pthread_mutex_t mutex_threads_number;
+// pthread_cond_t cond_threads_number;
+sem_t sem_threads_number;
 
 
 struct threads_args {
@@ -106,8 +109,10 @@ static void *threads_loop(void * arg) {
 	struct threads_args * conversion = (struct threads_args *) arg;
 	get_job(conversion->jobs_list, *(conversion->t_path), conversion->jumps, conversion->length);
 	tsp(*(conversion->jumps), *(conversion->length), *(conversion->t_path), conversion->cuttings, *(conversion->t_solution), conversion->solution_length);
-	(conversion->number_of_threads)--;
-	pthread_cond_signal(&cond_threads_number);
+	(*(conversion->number_of_threads))--;
+// 	pthread_cond_signal(&cond_threads_number);
+	sem_post(&sem_threads_number);
+
 	return NULL;
 }
 
@@ -155,7 +160,8 @@ int main (int argc, char **argv)
 	threads_table = (pthread_t *) calloc(nb_threads, sizeof(pthread_t));
 	arguments_for_threads = (struct threads_args *) calloc(nb_threads, sizeof(struct threads_args));
 
-	pthread_cond_init(&cond_threads_number, NULL);
+// 	pthread_cond_init(&cond_threads_number, NULL);
+	sem_init(&sem_threads_number, 0, nb_threads);
 	pthread_cond_init(&cond_sol, NULL);
 	pthread_cond_init(&cond_sol_len, NULL);
 	pthread_cond_init(&cond_cuts, NULL);
@@ -184,9 +190,10 @@ int main (int argc, char **argv)
     solution[0] = 0;
 	while (!empty_queue (&q)) {
 		// Wait for a thread if jobs not finished (= number max of threads reached)
-// 		while (i == nb_threads-1) {// Just to be sure, we could put i >=..., even if it couldn't
+// 		while (i == nb_threads) {// Just to be sure, we could put i >=..., even if it couldn't
 // 				pthread_cond_wait(&cond_threads_number, &mutex_threads_number);
 // 		}
+		sem_wait(&sem_threads_number);
         int hops = 0, len = 0;
 // 		get_job (&q, solution, &hops, &len);
 // // 			arguments_for_get_job.job_queue = &q;
@@ -214,6 +221,7 @@ int main (int argc, char **argv)
 		(arguments_for_threads+i)->jobs_list = &q;
 		pthread_create(threads_table+i, NULL, threads_loop, (void *) (arguments_for_threads+i));
 		i++;
+		printf("%d threads créés\n", i);
     }
 
     while (i > 0) {
@@ -222,6 +230,7 @@ int main (int argc, char **argv)
 // 		pthread_cond_wait(&cond_threads_number, &mutex_threads_number);
     }
 
+    sem_destroy(&sem_threads_number);
     free(arguments_for_threads);
 	free(threads_table);
 
