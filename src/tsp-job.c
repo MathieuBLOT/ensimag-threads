@@ -56,13 +56,6 @@ void add_job (struct tsp_queue *q, tsp_path_t p, int hops, int len) {
 }
 
 
-// void *get_job_for_threads(void *arg) {
-// 	struct get_thread_job *conversion = (struct get_thread_job *) arg;
-// 	get_job(conversion->job_queue, *(conversion->path), conversion->jumps, conversion->length);
-// 	return NULL;
-// }
-
-
 int get_job (struct tsp_queue *q, tsp_path_t p, int *hops, int *len) {
    struct tsp_cell *ptr;
 
@@ -70,7 +63,7 @@ int get_job (struct tsp_queue *q, tsp_path_t p, int *hops, int *len) {
        return 0;
    }
 
-   /*  */
+   /*  */	// Section critique de la récupération d'un job
    pthread_mutex_lock(&mutex_jobs);
    /*  */
 

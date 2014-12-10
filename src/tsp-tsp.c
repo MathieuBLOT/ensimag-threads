@@ -22,47 +22,32 @@ int present (int city, int hops, tsp_path_t path)
     return 0 ;
 }
 
+// Mutex
 pthread_mutex_t mutex_sol;
-pthread_cond_t cond_sol;
-
 pthread_mutex_t mutex_sol_len;
-pthread_cond_t cond_sol_len;
-
 pthread_mutex_t mutex_cuts;
-pthread_cond_t cond_cuts;
-
-
-// void *tsp_for_threads(void *arg) {
-// 	struct tsp_threads *conversion = (struct tsp_threads *) arg;
-// 	tsp(conversion->jumps, conversion->length, *(conversion->path), conversion->cuttings, *(conversion->solution), conversion->solution_length);
-// 	return NULL;
-// }
 
 
 void tsp (int hops, int len, tsp_path_t path, long long int *cuts, tsp_path_t sol, int *sol_len)
 {
 	if (len + cutprefix[(nb_towns-hops)] >= minimum) {
-	  /*  */
-	  pthread_mutex_lock(&mutex_cuts);
-	  /*  */
+	  /*  */pthread_mutex_lock(&mutex_cuts);
       (*cuts)++ ;
-	  /*  */
-	  pthread_mutex_unlock(&mutex_cuts);
-	  /*  */
+	  /*  */pthread_mutex_unlock(&mutex_cuts);
       return;
     }
 
     if (hops == nb_towns) {
 	    int me = path [hops - 1];
 	    int dist = distance[me][0]; // retourner en 0
-            if ( len + dist < minimum ) {
+	    if ( len + dist < minimum ) {
+				/*  */pthread_mutex_lock(&mutex_sol_len);
 		    minimum = len + dist;
-// 				/*  */pthread_mutex_lock(&mutex_sol_len);
 		    *sol_len = len + dist;
-// 				/*  */pthread_mutex_unlock(&mutex_sol_len);
-// 				/*  */pthread_mutex_lock(&mutex_sol);
+				/*  */pthread_mutex_unlock(&mutex_sol_len);
+				/*  */pthread_mutex_lock(&mutex_sol);
 		    memcpy(sol, path, nb_towns*sizeof(int));
-// 				/*  */pthread_mutex_unlock(&mutex_sol);
+				/*  */pthread_mutex_unlock(&mutex_sol);
 		    print_solution (path, len+dist);
 	    }
     } else {

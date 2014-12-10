@@ -39,30 +39,24 @@ int nb_threads=1;
 bool affiche_sol= false;
 
 
-// Mutex
-extern pthread_mutex_t mutex_sol;
-extern pthread_cond_t cond_sol;
+// Mutex (tous utilisés dans des fonction sd'autres modules)
+extern pthread_mutex_t mutex_sol;		// Déclaré dans tsp-tsp.c
+extern pthread_mutex_t mutex_sol_len;	// Déclaré dans tsp-tsp.c
+extern pthread_mutex_t mutex_cuts;		// Déclaré dans tsp-tsp.c
+extern pthread_mutex_t mutex_jobs;		// Déclaré dans tsp-job.c
 
-extern pthread_mutex_t mutex_sol_len;
-extern pthread_cond_t cond_sol_len;
-
-extern pthread_mutex_t mutex_cuts;
-extern pthread_cond_t cond_cuts;
-
-extern pthread_mutex_t mutex_jobs;
-extern pthread_cond_t cond_jobs;
-
-extern pthread_mutex_t mutex_print;	// Pour des raisons esthétiques
-extern pthread_cond_t cond_print;
+extern pthread_mutex_t mutex_print;		// Pour des raisons esthétiques
+										// Déclaré dans tsp-print.c
 
 // Sémaphore
 sem_t sem_threads_number;
 
-
+// Structures pour les threads
 struct threads_args {
-	int * number_of_threads;
-	int * jumps;
-	int * length;
+	int * threads_finished_table;
+	int thread_index;
+	int jumps;
+	int length;
 	long long int * cuttings;
 	tsp_path_t * t_path;
 	tsp_path_t * t_solution;
@@ -73,6 +67,8 @@ struct threads_args {
 void * status;
 void * PTHREAD_TERMINATED = (void *)123456789L;
 
+/** Fin des paramètres **/
+
 
 static void generate_tsp_jobs (struct tsp_queue *q, int hops, int len, tsp_path_t path, long long int *cuts, tsp_path_t sol, int *sol_len, int depth)
 {
@@ -80,8 +76,6 @@ static void generate_tsp_jobs (struct tsp_queue *q, int hops, int len, tsp_path_
         (*cuts)++ ;
         return;
     }
-
-    pthread_cond_init(&cond_jobs, NULL);
 
     if (hops == depth) {
         /* On enregistre du travail à faire plus tard... */
@@ -106,15 +100,19 @@ static void usage(const char *name) {
 
 static void *threads_loop(void * arg) {
 	struct threads_args * conversion = (struct threads_args *) arg;
+
 // 	printf("%lX appelle get_job()\n", pthread_self());
-	get_job(conversion->jobs_list, *(conversion->t_path), conversion->jumps, conversion->length);
+	get_job(conversion->jobs_list, *(conversion->t_path), &(conversion->jumps), &(conversion->length));
 // 	printf("%lX appelle tsp()\n", pthread_self());
-	tsp(*(conversion->jumps), *(conversion->length), *(conversion->t_path), conversion->cuttings, *(conversion->t_solution), conversion->solution_length);
-	(*(conversion->number_of_threads))--;
-// 	printf("Je suis le thread %lX : j'ai terminé mon job\n", pthread_self());
-// 	pthread_cond_signal(&cond_threads_number);
+	tsp(conversion->jumps, conversion->length, *(conversion->t_path), conversion->cuttings, *(conversion->t_solution), conversion->solution_length);
+
+	// Le thread signale qu'il a fini (test dans le main)
+	*((conversion->threads_finished_table)+conversion->thread_index) = 1;
+
+	// Le thread met à jour le sémaphore
 	sem_post(&sem_threads_number);
 
+	// printf("Je suis le thread %lX : j'ai terminé mon job\n", pthread_self());
 	return PTHREAD_TERMINATED;
 }
 
@@ -129,10 +127,15 @@ int main (int argc, char **argv)
     struct tsp_queue q;
 	struct timespec t1, t2;
 
-	// Tableau de TID
+	/* Tableau de threads, et tableau de signalisation des threads finis */
 	pthread_t *threads_table = NULL;
+	int *threads_finished = NULL;
+	// et tableau de structures d'arguments pour les threads
 	struct threads_args * arguments_for_threads = NULL;
-	int i = 0;
+	// Indice pour la création de threads
+	int next_thread_index = 0;
+	int next_thread_index_buffer = 0;
+	/*  */
 
     /* lire les arguments */
     int opt;
@@ -158,13 +161,11 @@ int main (int argc, char **argv)
 
 	/* Génération des threads */
 	threads_table = (pthread_t *) calloc(nb_threads, sizeof(pthread_t));
+	threads_finished = (int *) calloc(nb_threads, sizeof(int));
 	arguments_for_threads = (struct threads_args *) calloc(nb_threads, sizeof(struct threads_args));
 
+	// Initialisation du sémaphore
 	sem_init(&sem_threads_number, 0, nb_threads);
-	pthread_cond_init(&cond_sol, NULL);
-	pthread_cond_init(&cond_sol_len, NULL);
-	pthread_cond_init(&cond_cuts, NULL);
-	pthread_cond_init(&cond_print, NULL);
 	/*  */
 
     minimum = INT_MAX;
@@ -191,32 +192,54 @@ int main (int argc, char **argv)
 	while (!empty_queue (&q)) {
 		sem_wait(&sem_threads_number);
 
+		// On gère le fait qu'il y ait plus de jobs que de threads
+		if (next_thread_index >= nb_threads) {
+			next_thread_index_buffer = next_thread_index;
+			next_thread_index = 0;
+			while ((next_thread_index < nb_threads) && (threads_finished[next_thread_index] == 0)) {
+				next_thread_index++;
+			}
+			if (threads_finished[next_thread_index] == 1) {
+				pthread_join(threads_table[next_thread_index], &status);	// On attend un seul thread à la fois et seulement si besoin est
+			}
+			threads_finished[next_thread_index] = 0;
+		}
+
         int hops = 0, len = 0;
 
-		(arguments_for_threads+i)->number_of_threads = &i;
-		(arguments_for_threads+i)->jumps = &hops;
-		(arguments_for_threads+i)->length = &len;
-		(arguments_for_threads+i)->cuttings = &cuts;
-		(arguments_for_threads+i)->t_path = &solution;
-		(arguments_for_threads+i)->t_solution = &sol;
-		(arguments_for_threads+i)->solution_length = &sol_len;
-		(arguments_for_threads+i)->jobs_list = &q;
-		pthread_create(threads_table+i, NULL, threads_loop, (void *) (arguments_for_threads+i));
-		i++;
-// 		printf("%d threads créés\n", i);
+		// Initialisation de la structure d'arguments
+		(arguments_for_threads+next_thread_index)->threads_finished_table = threads_finished;
+		(arguments_for_threads+next_thread_index)->thread_index = next_thread_index;
+		(arguments_for_threads+next_thread_index)->jumps = hops;
+		(arguments_for_threads+next_thread_index)->length = len;
+		(arguments_for_threads+next_thread_index)->cuttings = &cuts;
+		(arguments_for_threads+next_thread_index)->t_path = &solution;
+		(arguments_for_threads+next_thread_index)->t_solution = &sol;
+		(arguments_for_threads+next_thread_index)->solution_length = &sol_len;
+		(arguments_for_threads+next_thread_index)->jobs_list = &q;
+
+		// Création d'un thread
+		pthread_create(threads_table + next_thread_index, NULL, threads_loop, (void *) (arguments_for_threads + next_thread_index));
+
+		// Correctif pour l'indice du thread à créer
+		next_thread_index = next_thread_index_buffer;
     }
 
+    fprintf(stderr, "On attend les threads.\n");
 	int j = 0;
     for (j = 0; j < nb_threads; j++) {
-		pthread_join(threads_table[i], &status);
+		pthread_join(threads_table[j], &status);
 	}
 
+	fprintf(stderr, "On libere les structures d'exclusion mutuelle.\n");
     sem_destroy(&sem_threads_number);
 	pthread_mutex_destroy(&mutex_sol);
 	pthread_mutex_destroy(&mutex_sol_len);
-	pthread_mutex_destroy(&mutex_jobs);
 	pthread_mutex_destroy(&mutex_cuts);
+	pthread_mutex_destroy(&mutex_jobs);
 	pthread_mutex_destroy(&mutex_print);
+
+	fprintf(stderr, "On libere les structures liees aux threads.\n");
     free(arguments_for_threads);
 	free(threads_table);
 
