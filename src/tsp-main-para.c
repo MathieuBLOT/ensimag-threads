@@ -42,22 +42,20 @@ bool affiche_sol= false;
 // Mutex
 extern pthread_mutex_t mutex_sol;
 extern pthread_cond_t cond_sol;
-// pthread_cond_init(&cond_sol, NULL);
-//
+
 extern pthread_mutex_t mutex_sol_len;
 extern pthread_cond_t cond_sol_len;
-// pthread_cond_init(&cond_sol_len, NULL);
-//
+
 extern pthread_mutex_t mutex_cuts;
 extern pthread_cond_t cond_cuts;
-// pthread_cond_init(&cond_cuts, NULL);
 
 extern pthread_mutex_t mutex_jobs;
 extern pthread_cond_t cond_jobs;
 
+extern pthread_mutex_t mutex_print;	// Pour des raisons esthétiques
+extern pthread_cond_t cond_print;
+
 // Sémaphore
-// pthread_mutex_t mutex_threads_number;
-// pthread_cond_t cond_threads_number;
 sem_t sem_threads_number;
 
 
@@ -73,6 +71,7 @@ struct threads_args {
 };
 
 void * status;
+void * PTHREAD_TERMINATED = (void *)123456789L;
 
 
 static void generate_tsp_jobs (struct tsp_queue *q, int hops, int len, tsp_path_t path, long long int *cuts, tsp_path_t sol, int *sol_len, int depth)
@@ -107,13 +106,16 @@ static void usage(const char *name) {
 
 static void *threads_loop(void * arg) {
 	struct threads_args * conversion = (struct threads_args *) arg;
+// 	printf("%lX appelle get_job()\n", pthread_self());
 	get_job(conversion->jobs_list, *(conversion->t_path), conversion->jumps, conversion->length);
+// 	printf("%lX appelle tsp()\n", pthread_self());
 	tsp(*(conversion->jumps), *(conversion->length), *(conversion->t_path), conversion->cuttings, *(conversion->t_solution), conversion->solution_length);
 	(*(conversion->number_of_threads))--;
+// 	printf("Je suis le thread %lX : j'ai terminé mon job\n", pthread_self());
 // 	pthread_cond_signal(&cond_threads_number);
 	sem_post(&sem_threads_number);
 
-	return NULL;
+	return PTHREAD_TERMINATED;
 }
 
 
@@ -129,8 +131,6 @@ int main (int argc, char **argv)
 
 	// Tableau de TID
 	pthread_t *threads_table = NULL;
-// 	struct get_thread_job arguments_for_get_job;
-// 	struct tsp_threads arguments_for_tsp;
 	struct threads_args * arguments_for_threads = NULL;
 	int i = 0;
 
@@ -160,11 +160,11 @@ int main (int argc, char **argv)
 	threads_table = (pthread_t *) calloc(nb_threads, sizeof(pthread_t));
 	arguments_for_threads = (struct threads_args *) calloc(nb_threads, sizeof(struct threads_args));
 
-// 	pthread_cond_init(&cond_threads_number, NULL);
 	sem_init(&sem_threads_number, 0, nb_threads);
 	pthread_cond_init(&cond_sol, NULL);
 	pthread_cond_init(&cond_sol_len, NULL);
 	pthread_cond_init(&cond_cuts, NULL);
+	pthread_cond_init(&cond_print, NULL);
 	/*  */
 
     minimum = INT_MAX;
@@ -189,28 +189,10 @@ int main (int argc, char **argv)
     memset (solution, -1, MAX_TOWNS * sizeof (int));
     solution[0] = 0;
 	while (!empty_queue (&q)) {
-		// Wait for a thread if jobs not finished (= number max of threads reached)
-// 		while (i == nb_threads) {// Just to be sure, we could put i >=..., even if it couldn't
-// 				pthread_cond_wait(&cond_threads_number, &mutex_threads_number);
-// 		}
 		sem_wait(&sem_threads_number);
-        int hops = 0, len = 0;
-// 		get_job (&q, solution, &hops, &len);
-// // 			arguments_for_get_job.job_queue = &q;
-// // 			arguments_for_get_job.path = &solution;
-// // 			arguments_for_get_job.jumps = &hops;
-// // 			arguments_for_get_job.length = &len;
-// // 		pthread_create(threads_table+i, NULL, get_job_for_threads, (void *)&arguments_for_get_job);
-// 		tsp (hops, len, solution, &cuts, sol, &sol_len);
-// // 			arguments_for_tsp.jumps = hops;
-// // 			arguments_for_tsp.length = len;
-// // 			arguments_for_tsp.path = &solution;
-// // 			arguments_for_tsp.cuttings = &cuts;
-// // 			arguments_for_tsp.solution = &sol;
-// // 			arguments_for_tsp.solution_length = &sol_len;
-// // 		pthread_create(threads_table+i, NULL, tsp_for_threads, (void *) &arguments_for_tsp);
 
-		/*  */
+        int hops = 0, len = 0;
+
 		(arguments_for_threads+i)->number_of_threads = &i;
 		(arguments_for_threads+i)->jumps = &hops;
 		(arguments_for_threads+i)->length = &len;
@@ -221,16 +203,20 @@ int main (int argc, char **argv)
 		(arguments_for_threads+i)->jobs_list = &q;
 		pthread_create(threads_table+i, NULL, threads_loop, (void *) (arguments_for_threads+i));
 		i++;
-		printf("%d threads créés\n", i);
+// 		printf("%d threads créés\n", i);
     }
 
-    while (i > 0) {
-// // 		i--;
+	int j = 0;
+    for (j = 0; j < nb_threads; j++) {
 		pthread_join(threads_table[i], &status);
-// 		pthread_cond_wait(&cond_threads_number, &mutex_threads_number);
-    }
+	}
 
     sem_destroy(&sem_threads_number);
+	pthread_mutex_destroy(&mutex_sol);
+	pthread_mutex_destroy(&mutex_sol_len);
+	pthread_mutex_destroy(&mutex_jobs);
+	pthread_mutex_destroy(&mutex_cuts);
+	pthread_mutex_destroy(&mutex_print);
     free(arguments_for_threads);
 	free(threads_table);
 

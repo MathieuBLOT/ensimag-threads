@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <pthread.h>
 
 #include "tsp-print.h"
 #include "tsp-types.h"
@@ -27,14 +28,18 @@ void print_distance_matrix (bool svg)
     printf ("done ...%s\n",postfix);
 }
 
+pthread_mutex_t mutex_print;
+pthread_cond_t cond_print;
 
 /* Affichage d'une solution possible. */
 void print_solution (tsp_path_t path, int len) {
+	pthread_mutex_lock(&mutex_print);
   fprintf (stderr, "found path len = %3d :", len);
   for (int i = 0; i < nb_towns; i++) {
     fprintf (stderr, "%2d ", path[i]);
   }
   fprintf (stderr, "\n") ;
+  pthread_mutex_unlock(&mutex_print);
 }
 
 void print_solution_svg (tsp_path_t path, int len) {
