@@ -39,16 +39,16 @@ int nb_threads=1;
 bool affiche_sol= false;
 
 
-// Mutex (tous utilisés dans des fonction sd'autres modules)
-extern pthread_mutex_t mutex_sol;		// Déclaré dans tsp-tsp.c
-extern pthread_mutex_t mutex_sol_len;	// Déclaré dans tsp-tsp.c
-extern pthread_mutex_t mutex_cuts;		// Déclaré dans tsp-tsp.c
-extern pthread_mutex_t mutex_jobs;		// Déclaré dans tsp-job.c
+// Mutex (tous utilises dans des fonctions d'autres modules)
+extern pthread_mutex_t mutex_sol;		// Declare dans tsp-tsp.c
+extern pthread_mutex_t mutex_sol_len;	// Declare dans tsp-tsp.c
+extern pthread_mutex_t mutex_cuts;		// Declare dans tsp-tsp.c
+extern pthread_mutex_t mutex_jobs;		// Declare dans tsp-job.c
 
-extern pthread_mutex_t mutex_print;		// Pour des raisons esthétiques
-										// Déclaré dans tsp-print.c
+extern pthread_mutex_t mutex_print;		// Pour des raisons esthetiques
+										// Declare dans tsp-print.c
 
-// Sémaphore
+// Semaphore
 sem_t sem_threads_number;
 
 // Structures pour les threads
@@ -109,10 +109,10 @@ static void *threads_loop(void * arg) {
 	// Le thread signale qu'il a fini (test dans le main)
 	*((conversion->threads_finished_table)+conversion->thread_index) = 1;
 
-	// Le thread met à jour le sémaphore
+	// Le thread met a jour le semaphore
 	sem_post(&sem_threads_number);
 
-	// printf("Je suis le thread %lX : j'ai terminé mon job\n", pthread_self());
+	// printf("Je suis le thread %lX : j'ai termine mon job\n", pthread_self());
 	return PTHREAD_TERMINATED;
 }
 
@@ -132,7 +132,7 @@ int main (int argc, char **argv)
 	int *threads_finished = NULL;
 	// et tableau de structures d'arguments pour les threads
 	struct threads_args * arguments_for_threads = NULL;
-	// Indice pour la création de threads
+	// Indice pour la creation de threads
 	int next_thread_index = 0;
 	int next_thread_index_buffer = 0;
 	/*  */
@@ -159,12 +159,12 @@ int main (int argc, char **argv)
     assert(nb_towns > 0);
     assert(nb_threads > 0);
 
-	/* Génération des threads */
+	/* Generation des threads */
 	threads_table = (pthread_t *) calloc(nb_threads, sizeof(pthread_t));
 	threads_finished = (int *) calloc(nb_threads, sizeof(int));
 	arguments_for_threads = (struct threads_args *) calloc(nb_threads, sizeof(struct threads_args));
 
-	// Initialisation du sémaphore
+	// Initialisation du semaphore
 	sem_init(&sem_threads_number, 0, nb_threads);
 	/*  */
 
@@ -200,7 +200,7 @@ int main (int argc, char **argv)
 				next_thread_index++;
 			}
 			if (threads_finished[next_thread_index] == 1) {
-				pthread_join(threads_table[next_thread_index], &status);	// On attend un seul thread à la fois et seulement si besoin est
+				pthread_join(threads_table[next_thread_index], &status);	// On attend un seul thread a la fois et seulement si besoin est
 			}
 			threads_finished[next_thread_index] = 0;
 		}
@@ -218,10 +218,10 @@ int main (int argc, char **argv)
 		(arguments_for_threads+next_thread_index)->solution_length = &sol_len;
 		(arguments_for_threads+next_thread_index)->jobs_list = &q;
 
-		// Création d'un thread
+		// Creation d'un thread
 		pthread_create(threads_table + next_thread_index, NULL, threads_loop, (void *) (arguments_for_threads + next_thread_index));
 
-		// Correctif pour l'indice du thread à créer
+		// Correctif pour l'indice du thread a creer
 		next_thread_index = next_thread_index_buffer;
     }
 

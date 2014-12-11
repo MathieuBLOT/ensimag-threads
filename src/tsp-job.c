@@ -63,7 +63,7 @@ int get_job (struct tsp_queue *q, tsp_path_t p, int *hops, int *len) {
        return 0;
    }
 
-   /*  */	// Section critique de la récupération d'un job
+   /*  */	// Section critique de la recuperation d'un job
    pthread_mutex_lock(&mutex_jobs);
    /*  */
 
